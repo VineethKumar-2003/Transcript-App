@@ -8,6 +8,25 @@
 import PhotosUI
 import SwiftUI
 import UniformTypeIdentifiers
+import CoreTransferable
+
+private struct PickedMovie: Transferable {
+    let url: URL
+
+    static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(contentType: .movie) { movie in
+            SentTransferredFile(movie.url)
+        } importing: { received in
+            let ext = received.file.pathExtension.isEmpty ? "mov" : received.file.pathExtension
+            let destination = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString)
+                .appendingPathExtension(ext)
+
+            try FileManager.default.copyItem(at: received.file, to: destination)
+            return Self(url: destination)
+        }
+    }
+}
 
 struct VideoPickerView: View {
     @State private var selectedItem: PhotosPickerItem?
@@ -18,13 +37,16 @@ struct VideoPickerView: View {
     @State private var isProcessing = false
 
     @State private var showFileImporter = false
+    
+    @State private var videoURL: URL?
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 20) {
+
                 PhotosPicker(
                     selection: $selectedItem,
-                    matching: .videos,
+                    matching: .videos
                 ) {
                     Text("Pick Video From Photos")
                 }
@@ -34,6 +56,7 @@ struct VideoPickerView: View {
                 }
 
                 if isProcessing {
+
                     ProgressView(value: progress)
                         .padding()
 
@@ -41,20 +64,23 @@ struct VideoPickerView: View {
                 }
             }
             .navigationDestination(isPresented: $navigate) {
-                TranscriptListView(transcript: transcripts)
+                TranscriptListView(
+                    transcript: transcripts,
+                    videoURL: videoURL
+                )
             }
             .onChange(of: selectedItem) {
-                Task {
-                    await loadVideo()
-                }
+                Task { await loadVideo() }
             }
             .fileImporter(
                 isPresented: $showFileImporter,
-                allowedContentTypes: [.movie],
+                allowedContentTypes: [.movie]
             ) { result in
                 switch result {
+
                 case let .success(url):
                     Task {
+
                         let access = url.startAccessingSecurityScopedResource()
 
                         defer {
@@ -64,6 +90,7 @@ struct VideoPickerView: View {
                         }
 
                         do {
+
                             let destination = FileManager.default.temporaryDirectory
                                 .appendingPathComponent(UUID().uuidString)
                                 .appendingPathExtension(url.pathExtension)
@@ -71,6 +98,7 @@ struct VideoPickerView: View {
                             try FileManager.default.copyItem(at: url, to: destination)
 
                             await processVideo(destination)
+
                         } catch {
                             print("File copy error:", error)
                         }
@@ -82,19 +110,13 @@ struct VideoPickerView: View {
             }
         }
     }
-
+    
     private func loadVideo() async {
         guard let item = selectedItem else { return }
 
         do {
-            if let data = try await item.loadTransferable(type: Data.self) {
-                let url = FileManager.default.temporaryDirectory
-                    .appendingPathComponent(UUID().uuidString)
-                    .appendingPathExtension("mov")
-
-                try data.write(to: url)
-
-                await processVideo(url)
+            if let movie = try await item.loadTransferable(type: PickedMovie.self) {
+                await processVideo(movie.url)
             }
 
         } catch {
@@ -103,19 +125,31 @@ struct VideoPickerView: View {
     }
 
     private func processVideo(_ url: URL) async {
+
         do {
+
             try await SpeechPermission.request()
 
             isProcessing = true
+            progress = 0
+            transcripts.removeAll()
+            
+            videoURL = url
 
             transcripts = try await TranscriptEngine.shared.transcribe(videoURL: url) { update in
-                progress = Double(update.current) / Double(update.total)
+                let total = max(update.total, 1)
+                let value = Double(update.current) / Double(total)
+                DispatchQueue.main.async {
+                    progress = value
+                }
             }
 
+            progress = 1
             isProcessing = false
             navigate = true
 
         } catch {
+
             isProcessing = false
             print(error)
         }
