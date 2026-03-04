@@ -10,7 +10,7 @@ import Foundation
 enum CaptionBuilder {
     static func buildCaptions(
         from segments: [TranscriptSegment],
-        window: TimeInterval = 4,
+        window: TimeInterval = 4
     ) -> [TranscriptCaption] {
         guard !segments.isEmpty else { return [] }
 
