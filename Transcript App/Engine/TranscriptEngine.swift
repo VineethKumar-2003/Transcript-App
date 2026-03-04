@@ -29,6 +29,7 @@ final class TranscriptEngine {
 
         let chunker = AudioChunker()
         let session = try await chunker.createChunks(from: asset)
+        defer { try? FileManager.default.removeItem(at: session.folder) }
 
         let chunks = session.chunks
         let total = chunks.count
@@ -38,6 +39,8 @@ final class TranscriptEngine {
         var allowOnDeviceRecognition = true
 
         for chunk in chunks {
+            try Task.checkCancellation()
+
             let result: [TranscriptSegment]
 
             do {
@@ -62,8 +65,6 @@ final class TranscriptEngine {
             completed += 1
             progress(.init(current: completed, total: total))
         }
-
-        try? FileManager.default.removeItem(at: session.folder)
 
         return allSegments.sorted { $0.startTime < $1.startTime }
     }
@@ -95,6 +96,8 @@ final class TranscriptEngine {
         var attempt = 1
 
         while true {
+            try Task.checkCancellation()
+
             do {
                 return try await transcribeChunkOnce(
                     url,
