@@ -7,16 +7,14 @@
 
 import Speech
 
-final class SpeechPermission {
-    
+enum SpeechPermission {
     static func request() async throws {
-        
         let status = await withCheckedContinuation { continuation in
             SFSpeechRecognizer.requestAuthorization { status in
                 continuation.resume(returning: status)
             }
         }
-        
+
         guard status == .authorized else {
             throw NSError(domain: "SpeechPermission", code: 1)
         }

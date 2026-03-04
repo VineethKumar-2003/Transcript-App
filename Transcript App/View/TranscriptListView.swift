@@ -8,7 +8,6 @@
 import SwiftUI
 
 struct TranscriptListView: View {
-
     let transcript: [TranscriptSegment]
 
     @State private var searchText = ""
@@ -18,7 +17,6 @@ struct TranscriptListView: View {
     }
 
     var filteredCaptions: [TranscriptCaption] {
-
         if searchText.isEmpty {
             return captions
         }
@@ -29,11 +27,8 @@ struct TranscriptListView: View {
     }
 
     var body: some View {
-
         List(filteredCaptions) { caption in
-
             VStack(alignment: .leading, spacing: 6) {
-
                 Text(timeString(caption.startTime))
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -47,7 +42,6 @@ struct TranscriptListView: View {
     }
 
     private func timeString(_ time: TimeInterval) -> String {
-
         let minutes = Int(time) / 60
         let seconds = Int(time) % 60
 
