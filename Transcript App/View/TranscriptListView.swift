@@ -8,11 +8,49 @@
 import SwiftUI
 
 struct TranscriptListView: View {
-    var body: some View {
-        Text(/*@START_MENU_TOKEN@*/"Hello, World!"/*@END_MENU_TOKEN@*/)
-    }
-}
 
-#Preview {
-    TranscriptListView()
+    let transcript: [TranscriptSegment]
+
+    @State private var searchText = ""
+
+    var captions: [TranscriptCaption] {
+        CaptionBuilder.buildCaptions(from: transcript)
+    }
+
+    var filteredCaptions: [TranscriptCaption] {
+
+        if searchText.isEmpty {
+            return captions
+        }
+
+        return captions.filter {
+            $0.text.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+
+    var body: some View {
+
+        List(filteredCaptions) { caption in
+
+            VStack(alignment: .leading, spacing: 6) {
+
+                Text(timeString(caption.startTime))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Text(caption.text)
+                    .font(.body)
+            }
+        }
+        .navigationTitle("Transcript")
+        .searchable(text: $searchText)
+    }
+
+    private func timeString(_ time: TimeInterval) -> String {
+
+        let minutes = Int(time) / 60
+        let seconds = Int(time) % 60
+
+        return String(format: "%02d:%02d", minutes, seconds)
+    }
 }

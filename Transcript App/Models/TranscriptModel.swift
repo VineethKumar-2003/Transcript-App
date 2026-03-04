@@ -6,3 +6,10 @@
 //
 
 import Foundation
+
+struct TranscriptSegment: Identifiable {
+    let id = UUID()
+    let text: String
+    let startTime: TimeInterval
+    let duration: TimeInterval
+}

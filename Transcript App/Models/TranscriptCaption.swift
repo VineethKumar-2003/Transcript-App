@@ -6,3 +6,10 @@
 //
 
 import Foundation
+
+struct TranscriptCaption: Identifiable {
+    
+    let id = UUID()
+    let text: String
+    let startTime: TimeInterval
+}
