@@ -39,6 +39,7 @@ struct VideoPickerView: View {
     @State private var showFileImporter = false
     
     @State private var videoURL: URL?
+    @State private var errorMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -50,10 +51,12 @@ struct VideoPickerView: View {
                 ) {
                     Text("Pick Video From Photos")
                 }
+                .disabled(isProcessing)
 
                 Button("Pick Video From Files") {
                     showFileImporter = true
                 }
+                .disabled(isProcessing)
 
                 if isProcessing {
 
@@ -100,17 +103,39 @@ struct VideoPickerView: View {
                             await processVideo(destination)
 
                         } catch {
-                            print("File copy error:", error)
+                            await MainActor.run {
+                                presentError("Could not import file: \(error.localizedDescription)")
+                            }
                         }
                     }
 
                 case let .failure(error):
-                    print(error)
+                    Task {
+                        await MainActor.run {
+                            presentError(error.localizedDescription)
+                        }
+                    }
                 }
             }
         }
+        .alert(
+            "Transcription Failed",
+            isPresented: Binding(
+                get: { errorMessage != nil },
+                set: { showing in
+                    if !showing {
+                        errorMessage = nil
+                    }
+                }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage ?? "")
+        }
     }
     
+    @MainActor
     private func loadVideo() async {
         guard let item = selectedItem else { return }
 
@@ -120,10 +145,11 @@ struct VideoPickerView: View {
             }
 
         } catch {
-            print(error)
+            presentError(error.localizedDescription)
         }
     }
 
+    @MainActor
     private func processVideo(_ url: URL) async {
 
         do {
@@ -134,7 +160,7 @@ struct VideoPickerView: View {
             progress = 0
             transcripts.removeAll()
             
-            videoURL = url
+            let previousVideoURL = videoURL
 
             transcripts = try await TranscriptEngine.shared.transcribe(videoURL: url) { update in
                 let total = max(update.total, 1)
@@ -144,6 +170,11 @@ struct VideoPickerView: View {
                 }
             }
 
+            if let previousVideoURL, previousVideoURL != url {
+                try? FileManager.default.removeItem(at: previousVideoURL)
+            }
+
+            videoURL = url
             progress = 1
             isProcessing = false
             navigate = true
@@ -151,8 +182,14 @@ struct VideoPickerView: View {
         } catch {
 
             isProcessing = false
-            print(error)
+            try? FileManager.default.removeItem(at: url)
+            presentError(error.localizedDescription)
         }
+    }
+
+    @MainActor
+    private func presentError(_ message: String) {
+        errorMessage = message
     }
 }
 

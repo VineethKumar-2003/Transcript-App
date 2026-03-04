@@ -16,6 +16,7 @@ struct TranscriptListView: View {
     @State private var searchText = ""
     @State private var player: AVPlayer?
     @State private var activeCaptionID: UUID?
+    @State private var timeObserverToken: Any?
 
     var captions: [TranscriptCaption] {
         CaptionBuilder.buildCaptions(from: transcript)
@@ -41,9 +42,6 @@ struct TranscriptListView: View {
 
                 VideoPlayer(player: player)
                     .frame(height: 220)
-                    .onAppear {
-                        observePlayback()
-                    }
             }
 
             Divider()
@@ -97,7 +95,16 @@ struct TranscriptListView: View {
 
             if let videoURL {
                 player = AVPlayer(url: videoURL)
+                observePlayback()
             }
+        }
+        .onDisappear {
+            removePlaybackObserver()
+            player?.pause()
+        }
+        .onChange(of: searchText) { _, _ in
+            let currentTime = player?.currentTime().seconds ?? 0
+            updateActiveCaption(currentTime: currentTime)
         }
     }
 
@@ -107,7 +114,9 @@ struct TranscriptListView: View {
 
         guard let player else { return }
 
-        player.addPeriodicTimeObserver(
+        removePlaybackObserver()
+
+        timeObserverToken = player.addPeriodicTimeObserver(
             forInterval: CMTime(seconds: 0.5, preferredTimescale: 600),
             queue: .main
         ) { time in
@@ -116,11 +125,24 @@ struct TranscriptListView: View {
         }
     }
 
+    private func removePlaybackObserver() {
+        guard
+            let player,
+            let timeObserverToken
+        else { return }
+
+        player.removeTimeObserver(timeObserverToken)
+        self.timeObserverToken = nil
+    }
+
     private func updateActiveCaption(currentTime: TimeInterval) {
 
-        guard let caption = captions.last(where: {
-            $0.startTime <= currentTime
-        }) else { return }
+        let source = searchText.isEmpty ? captions : filteredCaptions
+
+        guard let caption = source.last(where: { $0.startTime <= currentTime }) else {
+            activeCaptionID = nil
+            return
+        }
 
         activeCaptionID = caption.id
     }
@@ -164,7 +186,7 @@ struct TranscriptListView: View {
         for caption in captions {
 
             let start = formatSRTTime(caption.startTime)
-            let end = formatSRTTime(caption.startTime + 4)
+            let end = formatSRTTime(caption.startTime + CaptionBuilder.defaultWindow)
 
             srt += "\(index)\n"
             srt += "\(start) --> \(end)\n"
