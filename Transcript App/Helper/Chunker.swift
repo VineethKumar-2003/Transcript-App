@@ -5,11 +5,10 @@
 //  Created by Vineeth Kumar G on 04/03/26.
 //
 
-import Foundation
 import AVFoundation
+import Foundation
 
 final class AudioChunker {
-
     enum ChunkerError: LocalizedError {
         case noAudioTrack
         case failedToCreateExportSession
@@ -42,15 +41,14 @@ final class AudioChunker {
 
     func createChunks(
         from asset: AVURLAsset,
-        chunkDuration: TimeInterval = 30
+        chunkDuration: TimeInterval = 30,
     ) async throws -> ChunkSession {
-
         let sessionFolder = FileManager.default.temporaryDirectory
             .appendingPathComponent("transcription_\(UUID().uuidString)")
 
         try FileManager.default.createDirectory(
             at: sessionFolder,
-            withIntermediateDirectories: true
+            withIntermediateDirectories: true,
         )
 
         let audioTracks = try await asset.loadTracks(withMediaType: .audio)
@@ -80,7 +78,7 @@ final class AudioChunker {
                 startTime: startTime,
                 duration: currentDuration,
                 outputURL: outputURL,
-                index: chunkIndex
+                index: chunkIndex,
             )
 
             chunks.append(.init(url: outputURL, startTime: startTime))
@@ -97,16 +95,15 @@ final class AudioChunker {
         startTime: TimeInterval,
         duration: TimeInterval,
         outputURL: URL,
-        index: Int
+        index: Int,
     ) async throws {
-
         if FileManager.default.fileExists(atPath: outputURL.path) {
             try FileManager.default.removeItem(at: outputURL)
         }
 
         guard let exportSession = AVAssetExportSession(
             asset: asset,
-            presetName: AVAssetExportPresetAppleM4A
+            presetName: AVAssetExportPresetAppleM4A,
         ) else {
             throw ChunkerError.failedToCreateExportSession
         }

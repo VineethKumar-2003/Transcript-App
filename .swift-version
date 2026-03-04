@@ -1,8 +1,1 @@
---indent 4
---maxwidth 120
---wraparguments before-first
---wrapcollections before-first
---stripunusedargs closure-only
---self remove
---semicolons never
---swiftversion 6.2
+6.2

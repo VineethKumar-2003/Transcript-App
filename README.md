@@ -20,7 +20,7 @@ This sample project demonstrates how to pick a video from the Photos library or 
 
 The project follows a simple MVVM‑ish pattern with a service layer:
 
-- `Transcript_AppApp` → application entry point
+- `TranscriptApp` → application entry point
 - `ContentView` → root view loading the picker
 - `VideoPickerView` → view that handles video selection and state management
 - `TranscriptService` → singleton handling audio extraction and speech recognition

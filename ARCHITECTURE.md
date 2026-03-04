@@ -2,7 +2,7 @@
 
 ```mermaid
 graph TD
-    A["Transcript_AppApp<br/>(Entry Point)"] --> B["ContentView<br/>(Wrapper)"]
+    A["TranscriptApp<br/>(Entry Point)"] --> B["ContentView<br/>(Wrapper)"]
     
     B --> C["VideoPickerView<br/>(Main UI)"]
     
@@ -48,7 +48,7 @@ graph TD
 
 ### Components
 
-- **Transcript_AppApp**: Entry point of the application
+- **TranscriptApp**: Entry point of the application
 - **ContentView**: Wrapper view that loads VideoPickerView
 - **VideoPickerView**: Main UI component handling video selection and processing
 - **TranscriptService**: Service layer managing speech recognition and audio extraction

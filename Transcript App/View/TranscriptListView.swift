@@ -5,24 +5,23 @@
 //  Created by Vineeth Kumar G on 04/03/26.
 //
 
-import SwiftUI
 import AVKit
+import SwiftUI
 
 struct TranscriptListView: View {
-
     let transcript: [TranscriptSegment]
     let videoURL: URL?
 
     @State private var searchText = ""
     @State private var player: AVPlayer?
     @State private var activeCaptionID: UUID?
+    @State private var timeObserverToken: Any?
 
     var captions: [TranscriptCaption] {
         CaptionBuilder.buildCaptions(from: transcript)
     }
 
     var filteredCaptions: [TranscriptCaption] {
-
         if searchText.isEmpty {
             return captions
         }
@@ -33,27 +32,18 @@ struct TranscriptListView: View {
     }
 
     var body: some View {
-
         VStack(spacing: 0) {
-
             // VIDEO PLAYER (PINNED)
             if let player {
-
                 VideoPlayer(player: player)
                     .frame(height: 220)
-                    .onAppear {
-                        observePlayback()
-                    }
             }
 
             Divider()
 
             ScrollViewReader { proxy in
-
                 List(filteredCaptions) { caption in
-
                     VStack(alignment: .leading, spacing: 6) {
-
                         Text(timeString(caption.startTime))
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -64,12 +54,11 @@ struct TranscriptListView: View {
                     .padding(.vertical, 6)
                     .background(
                         caption.id == activeCaptionID
-                        ? Color.accentColor.opacity(0.15)
-                        : Color.clear
+                            ? Color.accentColor.opacity(0.15)
+                            : Color.clear,
                     )
                     .contentShape(Rectangle())
                     .onTapGesture {
-
                         guard let player else { return }
 
                         let time = CMTime(seconds: caption.startTime, preferredTimescale: 600)
@@ -94,33 +83,53 @@ struct TranscriptListView: View {
             exportButton
         }
         .onAppear {
-
             if let videoURL {
                 player = AVPlayer(url: videoURL)
+                observePlayback()
             }
+        }
+        .onDisappear {
+            removePlaybackObserver()
+            player?.pause()
+        }
+        .onChange(of: searchText) { _, _ in
+            let currentTime = player?.currentTime().seconds ?? 0
+            updateActiveCaption(currentTime: currentTime)
         }
     }
 
     // MARK: Playback observer
 
     private func observePlayback() {
-
         guard let player else { return }
 
-        player.addPeriodicTimeObserver(
-            forInterval: CMTime(seconds: 0.5, preferredTimescale: 600),
-            queue: .main
-        ) { time in
+        removePlaybackObserver()
 
+        timeObserverToken = player.addPeriodicTimeObserver(
+            forInterval: CMTime(seconds: 0.5, preferredTimescale: 600),
+            queue: .main,
+        ) { time in
             updateActiveCaption(currentTime: time.seconds)
         }
     }
 
-    private func updateActiveCaption(currentTime: TimeInterval) {
+    private func removePlaybackObserver() {
+        guard
+            let player,
+            let timeObserverToken
+        else { return }
 
-        guard let caption = captions.last(where: {
-            $0.startTime <= currentTime
-        }) else { return }
+        player.removeTimeObserver(timeObserverToken)
+        self.timeObserverToken = nil
+    }
+
+    private func updateActiveCaption(currentTime: TimeInterval) {
+        let source = searchText.isEmpty ? captions : filteredCaptions
+
+        guard let caption = source.last(where: { $0.startTime <= currentTime }) else {
+            activeCaptionID = nil
+            return
+        }
 
         activeCaptionID = caption.id
     }
@@ -128,11 +137,8 @@ struct TranscriptListView: View {
     // MARK: Export
 
     private var exportButton: some ToolbarContent {
-
         ToolbarItem(placement: .navigationBarTrailing) {
-
             Menu {
-
                 Button("Export TXT") {
                     exportTXT()
                 }
@@ -148,7 +154,6 @@ struct TranscriptListView: View {
     }
 
     private func exportTXT() {
-
         let text = captions
             .map { "[\(timeString($0.startTime))] \($0.text)" }
             .joined(separator: "\n")
@@ -157,14 +162,12 @@ struct TranscriptListView: View {
     }
 
     private func exportSRT() {
-
         var srt = ""
         var index = 1
 
         for caption in captions {
-
             let start = formatSRTTime(caption.startTime)
-            let end = formatSRTTime(caption.startTime + 4)
+            let end = formatSRTTime(caption.startTime + CaptionBuilder.defaultWindow)
 
             srt += "\(index)\n"
             srt += "\(start) --> \(end)\n"
@@ -179,7 +182,6 @@ struct TranscriptListView: View {
     // MARK: Time helpers
 
     private func timeString(_ time: TimeInterval) -> String {
-
         let minutes = Int(time) / 60
         let seconds = Int(time) % 60
 
@@ -187,7 +189,6 @@ struct TranscriptListView: View {
     }
 
     private func formatSRTTime(_ time: TimeInterval) -> String {
-
         let hours = Int(time) / 3600
         let minutes = (Int(time) % 3600) / 60
         let seconds = Int(time) % 60

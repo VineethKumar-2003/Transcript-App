@@ -49,6 +49,9 @@ build/
 # CodeQL
 codeql-db/
 
+# Review Doc
+CODE_REVIEW.md
+
 # Flutter/Dart
 flutter_export_environment.sh
 

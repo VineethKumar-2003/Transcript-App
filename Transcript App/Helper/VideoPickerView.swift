@@ -5,10 +5,10 @@
 //  Created by Vineeth Kumar G on 04/03/26.
 //
 
+import CoreTransferable
 import PhotosUI
 import SwiftUI
 import UniformTypeIdentifiers
-import CoreTransferable
 
 private struct PickedMovie: Transferable {
     let url: URL
@@ -37,26 +37,27 @@ struct VideoPickerView: View {
     @State private var isProcessing = false
 
     @State private var showFileImporter = false
-    
+
     @State private var videoURL: URL?
+    @State private var errorMessage: String?
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 20) {
-
                 PhotosPicker(
                     selection: $selectedItem,
-                    matching: .videos
+                    matching: .videos,
                 ) {
                     Text("Pick Video From Photos")
                 }
+                .disabled(isProcessing)
 
                 Button("Pick Video From Files") {
                     showFileImporter = true
                 }
+                .disabled(isProcessing)
 
                 if isProcessing {
-
                     ProgressView(value: progress)
                         .padding()
 
@@ -66,7 +67,7 @@ struct VideoPickerView: View {
             .navigationDestination(isPresented: $navigate) {
                 TranscriptListView(
                     transcript: transcripts,
-                    videoURL: videoURL
+                    videoURL: videoURL,
                 )
             }
             .onChange(of: selectedItem) {
@@ -74,13 +75,11 @@ struct VideoPickerView: View {
             }
             .fileImporter(
                 isPresented: $showFileImporter,
-                allowedContentTypes: [.movie]
+                allowedContentTypes: [.movie],
             ) { result in
                 switch result {
-
                 case let .success(url):
                     Task {
-
                         let access = url.startAccessingSecurityScopedResource()
 
                         defer {
@@ -90,7 +89,6 @@ struct VideoPickerView: View {
                         }
 
                         do {
-
                             let destination = FileManager.default.temporaryDirectory
                                 .appendingPathComponent(UUID().uuidString)
                                 .appendingPathExtension(url.pathExtension)
@@ -100,17 +98,39 @@ struct VideoPickerView: View {
                             await processVideo(destination)
 
                         } catch {
-                            print("File copy error:", error)
+                            await MainActor.run {
+                                presentError("Could not import file: \(error.localizedDescription)")
+                            }
                         }
                     }
 
                 case let .failure(error):
-                    print(error)
+                    Task {
+                        await MainActor.run {
+                            presentError(error.localizedDescription)
+                        }
+                    }
                 }
             }
         }
+        .alert(
+            "Transcription Failed",
+            isPresented: Binding(
+                get: { errorMessage != nil },
+                set: { showing in
+                    if !showing {
+                        errorMessage = nil
+                    }
+                },
+            ),
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage ?? "")
+        }
     }
-    
+
+    @MainActor
     private func loadVideo() async {
         guard let item = selectedItem else { return }
 
@@ -120,21 +140,20 @@ struct VideoPickerView: View {
             }
 
         } catch {
-            print(error)
+            presentError(error.localizedDescription)
         }
     }
 
+    @MainActor
     private func processVideo(_ url: URL) async {
-
         do {
-
             try await SpeechPermission.request()
 
             isProcessing = true
             progress = 0
             transcripts.removeAll()
-            
-            videoURL = url
+
+            let previousVideoURL = videoURL
 
             transcripts = try await TranscriptEngine.shared.transcribe(videoURL: url) { update in
                 let total = max(update.total, 1)
@@ -144,15 +163,25 @@ struct VideoPickerView: View {
                 }
             }
 
+            if let previousVideoURL, previousVideoURL != url {
+                try? FileManager.default.removeItem(at: previousVideoURL)
+            }
+
+            videoURL = url
             progress = 1
             isProcessing = false
             navigate = true
 
         } catch {
-
             isProcessing = false
-            print(error)
+            try? FileManager.default.removeItem(at: url)
+            presentError(error.localizedDescription)
         }
+    }
+
+    @MainActor
+    private func presentError(_ message: String) {
+        errorMessage = message
     }
 }
 
