@@ -5,12 +5,11 @@
 //  Created by Vineeth Kumar G on 04/03/26.
 //
 
+import AVFoundation
 import Foundation
 import Speech
-import AVFoundation
 
 final class TranscriptEngine {
-
     static let shared = TranscriptEngine()
 
     private let recognitionLocale = Locale(identifier: "en-US")
@@ -22,9 +21,8 @@ final class TranscriptEngine {
 
     func transcribe(
         videoURL: URL,
-        progress: @escaping (Progress) -> Void
+        progress: @escaping (Progress) -> Void,
     ) async throws -> [TranscriptSegment] {
-
         let asset = AVURLAsset(url: videoURL)
 
         let chunker = AudioChunker()
@@ -46,14 +44,14 @@ final class TranscriptEngine {
             do {
                 result = try await transcribeChunkAdjusted(
                     chunk,
-                    allowOnDeviceRecognition: allowOnDeviceRecognition
+                    allowOnDeviceRecognition: allowOnDeviceRecognition,
                 )
             } catch {
                 if isLocalSpeechServiceError(error), allowOnDeviceRecognition {
                     allowOnDeviceRecognition = false
                     result = try await transcribeChunkAdjusted(
                         chunk,
-                        allowOnDeviceRecognition: false
+                        allowOnDeviceRecognition: false,
                     )
                 } else {
                     throw error
@@ -68,29 +66,28 @@ final class TranscriptEngine {
 
         return allSegments.sorted { $0.startTime < $1.startTime }
     }
-    
+
     private func transcribeChunkAdjusted(
         _ chunk: AudioChunker.Chunk,
-        allowOnDeviceRecognition: Bool = true
+        allowOnDeviceRecognition: Bool = true,
     ) async throws -> [TranscriptSegment] {
-
         let segments = try await transcribeChunk(
             chunk.url,
-            allowOnDeviceRecognition: allowOnDeviceRecognition
+            allowOnDeviceRecognition: allowOnDeviceRecognition,
         )
 
         return segments.map {
             TranscriptSegment(
                 text: $0.text,
                 startTime: $0.startTime + chunk.startTime,
-                duration: $0.duration
+                duration: $0.duration,
             )
         }
     }
 
     private func transcribeChunk(
         _ url: URL,
-        allowOnDeviceRecognition: Bool
+        allowOnDeviceRecognition: Bool,
     ) async throws -> [TranscriptSegment] {
         let maxAttempts = 3
         var attempt = 1
@@ -101,7 +98,7 @@ final class TranscriptEngine {
             do {
                 return try await transcribeChunkOnce(
                     url,
-                    allowOnDeviceRecognition: allowOnDeviceRecognition && attempt == 1
+                    allowOnDeviceRecognition: allowOnDeviceRecognition && attempt == 1,
                 )
             } catch {
                 if isNoSpeechError(error) {
@@ -120,14 +117,13 @@ final class TranscriptEngine {
 
     private func transcribeChunkOnce(
         _ url: URL,
-        allowOnDeviceRecognition: Bool
+        allowOnDeviceRecognition: Bool,
     ) async throws -> [TranscriptSegment] {
-
         guard let recognizer = SFSpeechRecognizer(locale: recognitionLocale) else {
             throw NSError(
                 domain: "TranscriptEngine",
                 code: 1,
-                userInfo: [NSLocalizedDescriptionKey: "Speech recognizer is unavailable for this locale."]
+                userInfo: [NSLocalizedDescriptionKey: "Speech recognizer is unavailable for this locale."],
             )
         }
 
@@ -140,7 +136,6 @@ final class TranscriptEngine {
         request.taskHint = .dictation
 
         return try await withCheckedThrowingContinuation { continuation in
-
             let lock = NSLock()
             var didResume = false
 
@@ -171,12 +166,11 @@ final class TranscriptEngine {
                 guard let result else { return }
 
                 if result.isFinal {
-
                     let segments = result.bestTranscription.segments.map {
                         TranscriptSegment(
                             text: $0.substring,
                             startTime: $0.timestamp,
-                            duration: $0.duration
+                            duration: $0.duration,
                         )
                     }
 

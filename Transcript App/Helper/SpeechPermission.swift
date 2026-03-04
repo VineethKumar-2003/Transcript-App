@@ -15,11 +15,11 @@ enum SpeechPermissionError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .denied:
-            return "Speech recognition permission is denied. Enable it in Settings."
+            "Speech recognition permission is denied. Enable it in Settings."
         case .restricted:
-            return "Speech recognition is restricted on this device."
+            "Speech recognition is restricted on this device."
         case .notDetermined:
-            return "Speech recognition permission was not determined."
+            "Speech recognition permission was not determined."
         }
     }
 }

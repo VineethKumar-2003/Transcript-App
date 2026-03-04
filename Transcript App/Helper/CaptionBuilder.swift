@@ -12,7 +12,7 @@ enum CaptionBuilder {
 
     static func buildCaptions(
         from segments: [TranscriptSegment],
-        window: TimeInterval = defaultWindow
+        window: TimeInterval = defaultWindow,
     ) -> [TranscriptCaption] {
         guard let first = segments.first else { return [] }
 
@@ -26,8 +26,8 @@ enum CaptionBuilder {
                 captions.append(
                     TranscriptCaption(
                         text: bufferText.trimmingCharacters(in: .whitespaces),
-                        startTime: windowStart
-                    )
+                        startTime: windowStart,
+                    ),
                 )
 
                 bufferText = segment.text
@@ -42,8 +42,8 @@ enum CaptionBuilder {
             captions.append(
                 TranscriptCaption(
                     text: bufferText.trimmingCharacters(in: .whitespaces),
-                    startTime: windowStart
-                )
+                    startTime: windowStart,
+                ),
             )
         }
 

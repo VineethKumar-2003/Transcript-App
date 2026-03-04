@@ -5,11 +5,10 @@
 //  Created by Vineeth Kumar G on 04/03/26.
 //
 
-import SwiftUI
 import AVKit
+import SwiftUI
 
 struct TranscriptListView: View {
-
     let transcript: [TranscriptSegment]
     let videoURL: URL?
 
@@ -23,7 +22,6 @@ struct TranscriptListView: View {
     }
 
     var filteredCaptions: [TranscriptCaption] {
-
         if searchText.isEmpty {
             return captions
         }
@@ -34,12 +32,9 @@ struct TranscriptListView: View {
     }
 
     var body: some View {
-
         VStack(spacing: 0) {
-
             // VIDEO PLAYER (PINNED)
             if let player {
-
                 VideoPlayer(player: player)
                     .frame(height: 220)
             }
@@ -47,11 +42,8 @@ struct TranscriptListView: View {
             Divider()
 
             ScrollViewReader { proxy in
-
                 List(filteredCaptions) { caption in
-
                     VStack(alignment: .leading, spacing: 6) {
-
                         Text(timeString(caption.startTime))
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -62,12 +54,11 @@ struct TranscriptListView: View {
                     .padding(.vertical, 6)
                     .background(
                         caption.id == activeCaptionID
-                        ? Color.accentColor.opacity(0.15)
-                        : Color.clear
+                            ? Color.accentColor.opacity(0.15)
+                            : Color.clear,
                     )
                     .contentShape(Rectangle())
                     .onTapGesture {
-
                         guard let player else { return }
 
                         let time = CMTime(seconds: caption.startTime, preferredTimescale: 600)
@@ -92,7 +83,6 @@ struct TranscriptListView: View {
             exportButton
         }
         .onAppear {
-
             if let videoURL {
                 player = AVPlayer(url: videoURL)
                 observePlayback()
@@ -111,16 +101,14 @@ struct TranscriptListView: View {
     // MARK: Playback observer
 
     private func observePlayback() {
-
         guard let player else { return }
 
         removePlaybackObserver()
 
         timeObserverToken = player.addPeriodicTimeObserver(
             forInterval: CMTime(seconds: 0.5, preferredTimescale: 600),
-            queue: .main
+            queue: .main,
         ) { time in
-
             updateActiveCaption(currentTime: time.seconds)
         }
     }
@@ -136,7 +124,6 @@ struct TranscriptListView: View {
     }
 
     private func updateActiveCaption(currentTime: TimeInterval) {
-
         let source = searchText.isEmpty ? captions : filteredCaptions
 
         guard let caption = source.last(where: { $0.startTime <= currentTime }) else {
@@ -150,11 +137,8 @@ struct TranscriptListView: View {
     // MARK: Export
 
     private var exportButton: some ToolbarContent {
-
         ToolbarItem(placement: .navigationBarTrailing) {
-
             Menu {
-
                 Button("Export TXT") {
                     exportTXT()
                 }
@@ -170,7 +154,6 @@ struct TranscriptListView: View {
     }
 
     private func exportTXT() {
-
         let text = captions
             .map { "[\(timeString($0.startTime))] \($0.text)" }
             .joined(separator: "\n")
@@ -179,12 +162,10 @@ struct TranscriptListView: View {
     }
 
     private func exportSRT() {
-
         var srt = ""
         var index = 1
 
         for caption in captions {
-
             let start = formatSRTTime(caption.startTime)
             let end = formatSRTTime(caption.startTime + CaptionBuilder.defaultWindow)
 
@@ -201,7 +182,6 @@ struct TranscriptListView: View {
     // MARK: Time helpers
 
     private func timeString(_ time: TimeInterval) -> String {
-
         let minutes = Int(time) / 60
         let seconds = Int(time) % 60
 
@@ -209,7 +189,6 @@ struct TranscriptListView: View {
     }
 
     private func formatSRTTime(_ time: TimeInterval) -> String {
-
         let hours = Int(time) / 3600
         let minutes = (Int(time) % 3600) / 60
         let seconds = Int(time) % 60

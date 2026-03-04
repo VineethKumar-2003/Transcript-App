@@ -5,10 +5,10 @@
 //  Created by Vineeth Kumar G on 04/03/26.
 //
 
+import CoreTransferable
 import PhotosUI
 import SwiftUI
 import UniformTypeIdentifiers
-import CoreTransferable
 
 private struct PickedMovie: Transferable {
     let url: URL
@@ -37,17 +37,16 @@ struct VideoPickerView: View {
     @State private var isProcessing = false
 
     @State private var showFileImporter = false
-    
+
     @State private var videoURL: URL?
     @State private var errorMessage: String?
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 20) {
-
                 PhotosPicker(
                     selection: $selectedItem,
-                    matching: .videos
+                    matching: .videos,
                 ) {
                     Text("Pick Video From Photos")
                 }
@@ -59,7 +58,6 @@ struct VideoPickerView: View {
                 .disabled(isProcessing)
 
                 if isProcessing {
-
                     ProgressView(value: progress)
                         .padding()
 
@@ -69,7 +67,7 @@ struct VideoPickerView: View {
             .navigationDestination(isPresented: $navigate) {
                 TranscriptListView(
                     transcript: transcripts,
-                    videoURL: videoURL
+                    videoURL: videoURL,
                 )
             }
             .onChange(of: selectedItem) {
@@ -77,13 +75,11 @@ struct VideoPickerView: View {
             }
             .fileImporter(
                 isPresented: $showFileImporter,
-                allowedContentTypes: [.movie]
+                allowedContentTypes: [.movie],
             ) { result in
                 switch result {
-
                 case let .success(url):
                     Task {
-
                         let access = url.startAccessingSecurityScopedResource()
 
                         defer {
@@ -93,7 +89,6 @@ struct VideoPickerView: View {
                         }
 
                         do {
-
                             let destination = FileManager.default.temporaryDirectory
                                 .appendingPathComponent(UUID().uuidString)
                                 .appendingPathExtension(url.pathExtension)
@@ -126,15 +121,15 @@ struct VideoPickerView: View {
                     if !showing {
                         errorMessage = nil
                     }
-                }
-            )
+                },
+            ),
         ) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(errorMessage ?? "")
         }
     }
-    
+
     @MainActor
     private func loadVideo() async {
         guard let item = selectedItem else { return }
@@ -151,15 +146,13 @@ struct VideoPickerView: View {
 
     @MainActor
     private func processVideo(_ url: URL) async {
-
         do {
-
             try await SpeechPermission.request()
 
             isProcessing = true
             progress = 0
             transcripts.removeAll()
-            
+
             let previousVideoURL = videoURL
 
             transcripts = try await TranscriptEngine.shared.transcribe(videoURL: url) { update in
@@ -180,7 +173,6 @@ struct VideoPickerView: View {
             navigate = true
 
         } catch {
-
             isProcessing = false
             try? FileManager.default.removeItem(at: url)
             presentError(error.localizedDescription)
