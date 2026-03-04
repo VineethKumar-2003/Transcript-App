@@ -46,6 +46,9 @@ build/
 # Archives
 *.xcarchive
 
+# CodeQL
+codeql-db/
+
 # Flutter/Dart
 flutter_export_environment.sh
 
