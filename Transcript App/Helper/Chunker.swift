@@ -5,10 +5,31 @@
 //  Created by Vineeth Kumar G on 04/03/26.
 //
 
-import AVFoundation
 import Foundation
+import AVFoundation
 
 final class AudioChunker {
+
+    enum ChunkerError: LocalizedError {
+        case noAudioTrack
+        case failedToCreateExportSession
+        case failedToExportChunk(index: Int, underlying: Error?)
+
+        var errorDescription: String? {
+            switch self {
+            case .noAudioTrack:
+                return "The selected video does not contain an audio track."
+            case .failedToCreateExportSession:
+                return "Unable to create an audio export session."
+            case let .failedToExportChunk(index, underlying):
+                if let underlying {
+                    return "Failed to export audio chunk \(index): \(underlying.localizedDescription)"
+                }
+                return "Failed to export audio chunk \(index)."
+            }
+        }
+    }
+
     struct Chunk {
         let url: URL
         let startTime: TimeInterval
@@ -19,67 +40,88 @@ final class AudioChunker {
         let chunks: [Chunk]
     }
 
-    /// Split video/audio into time-based audio chunks
-    /// - Parameters:
-    ///     - asset: AVURLAsset of the video
-    ///     - chunkDuration: duration of each chunk in seconds (Default 30)
-    /// - Returns: array of chunk metadata
     func createChunks(
         from asset: AVURLAsset,
-        chunkDuration: TimeInterval = 30,
+        chunkDuration: TimeInterval = 30
     ) async throws -> ChunkSession {
+
         let sessionFolder = FileManager.default.temporaryDirectory
             .appendingPathComponent("transcription_\(UUID().uuidString)")
 
         try FileManager.default.createDirectory(
             at: sessionFolder,
-            withIntermediateDirectories: true,
+            withIntermediateDirectories: true
         )
 
-        let durationSeconds = try await asset.load(.duration).seconds
+        let audioTracks = try await asset.loadTracks(withMediaType: .audio)
+        guard !audioTracks.isEmpty else {
+            throw ChunkerError.noAudioTrack
+        }
+
+        let duration = try await asset.load(.duration)
+        let totalDuration = CMTimeGetSeconds(duration)
+
+        guard totalDuration.isFinite, totalDuration > 0 else {
+            return ChunkSession(folder: sessionFolder, chunks: [])
+        }
 
         var chunks: [Chunk] = []
-        var currentStart: TimeInterval = 0
-        var index = 0
+        var chunkIndex = 0
+        var startTime: TimeInterval = 0
 
-        while currentStart < durationSeconds {
-            let exportURL = sessionFolder
-                .appendingPathComponent("chunk_\(index)")
+        while startTime < totalDuration {
+            let currentDuration = min(chunkDuration, totalDuration - startTime)
+            let outputURL = sessionFolder
+                .appendingPathComponent("chunk_\(chunkIndex)")
                 .appendingPathExtension("m4a")
 
-            let startTime = CMTime(seconds: currentStart, preferredTimescale: 600)
-            let remaining = durationSeconds - currentStart
-            let segmentDuration = min(chunkDuration, remaining)
-
-            let timeRange = CMTimeRange(
-                start: startTime,
-                duration: CMTime(seconds: segmentDuration, preferredTimescale: 600),
+            try await exportAudioChunk(
+                from: asset,
+                startTime: startTime,
+                duration: currentDuration,
+                outputURL: outputURL,
+                index: chunkIndex
             )
 
-            guard let exportSession = AVAssetExportSession(
-                asset: asset,
-                presetName: AVAssetExportPresetAppleM4A,
-            ) else {
-                throw NSError(domain: "ChunkExport", code: -1)
-            }
+            chunks.append(.init(url: outputURL, startTime: startTime))
 
-            exportSession.timeRange = timeRange
-
-            try await exportSession.export(to: exportURL, as: .m4a)
-
-            let chunk = Chunk(
-                url: exportURL,
-                startTime: currentStart,
-            )
-
-            chunks.append(chunk)
-
-            currentStart += chunkDuration
-            index += 1
+            startTime += currentDuration
+            chunkIndex += 1
         }
-        return ChunkSession(
-            folder: sessionFolder,
-            chunks: chunks,
-        )
+
+        return ChunkSession(folder: sessionFolder, chunks: chunks)
+    }
+
+    private func exportAudioChunk(
+        from asset: AVURLAsset,
+        startTime: TimeInterval,
+        duration: TimeInterval,
+        outputURL: URL,
+        index: Int
+    ) async throws {
+
+        if FileManager.default.fileExists(atPath: outputURL.path) {
+            try FileManager.default.removeItem(at: outputURL)
+        }
+
+        guard let exportSession = AVAssetExportSession(
+            asset: asset,
+            presetName: AVAssetExportPresetAppleM4A
+        ) else {
+            throw ChunkerError.failedToCreateExportSession
+        }
+
+        exportSession.outputURL = outputURL
+        exportSession.outputFileType = .m4a
+
+        let start = CMTime(seconds: startTime, preferredTimescale: 600)
+        let chunkDuration = CMTime(seconds: duration, preferredTimescale: 600)
+        exportSession.timeRange = CMTimeRange(start: start, duration: chunkDuration)
+
+        do {
+            try await exportSession.export(to: outputURL, as: .m4a)
+        } catch {
+            throw ChunkerError.failedToExportChunk(index: index, underlying: error)
+        }
     }
 }
