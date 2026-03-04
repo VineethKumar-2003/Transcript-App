@@ -8,31 +8,33 @@
 import Foundation
 
 enum CaptionBuilder {
+    static let defaultWindow: TimeInterval = 4
+
     static func buildCaptions(
         from segments: [TranscriptSegment],
-        window: TimeInterval = 4
+        window: TimeInterval = defaultWindow
     ) -> [TranscriptCaption] {
-        guard !segments.isEmpty else { return [] }
+        guard let first = segments.first else { return [] }
 
         var captions: [TranscriptCaption] = []
 
-        var bufferText = ""
-        var windowStart = segments.first!.startTime
+        var bufferText = first.text
+        var windowStart = first.startTime
 
-        for segment in segments {
+        for segment in segments.dropFirst() {
             if segment.startTime - windowStart > window {
                 captions.append(
                     TranscriptCaption(
                         text: bufferText.trimmingCharacters(in: .whitespaces),
-                        startTime: windowStart,
-                    ),
+                        startTime: windowStart
+                    )
                 )
 
                 bufferText = segment.text
                 windowStart = segment.startTime
 
             } else {
-                bufferText += " " + segment.text
+                bufferText += " \(segment.text)"
             }
         }
 
@@ -40,8 +42,8 @@ enum CaptionBuilder {
             captions.append(
                 TranscriptCaption(
                     text: bufferText.trimmingCharacters(in: .whitespaces),
-                    startTime: windowStart,
-                ),
+                    startTime: windowStart
+                )
             )
         }
 
