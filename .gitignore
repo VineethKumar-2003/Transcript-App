@@ -1,0 +1,75 @@
+# Xcode
+*.xcworkspace
+*.xcuserdatad/
+*.xcuserstate
+*.xcscmblueprint
+
+# Swift Package Manager
+.build/
+Packages/
+
+# CocoaPods
+Pods/
+
+# Carthage
+Carthage/Build/
+
+# Solution files
+*.xcodeproj/project.xcworkspace/contents.xcworkspacedata
+
+# Derived data
+DerivedData/
+
+# User settings
+*.swp
+*.lock
+*.log
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Temporary files
+*.swp
+*~
+
+# Build artifacts
+build/
+
+# Backup files
+*.orig
+
+# SwiftPM
+/.swiftpm/
+
+# Archives
+*.xcarchive
+
+# CodeQL
+codeql-db/
+
+# Review Doc
+CODE_REVIEW.md
+
+# Flutter/Dart
+flutter_export_environment.sh
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+
+# Other
+.idea/
+.vscode/
+
+# Ignore generated documentation
+docs/
+
+# Ignore qodo
+.qodo/
+
+# format
+.swiftformat
+.swift-version
